@@ -6,6 +6,7 @@ import com.alibaba.fastjson.JSONObject;
 import com.etlTasktool.App;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
@@ -44,6 +45,12 @@ public class HttpTool {
     public static JSONObject post(String url, Map<String, String> headers, Map<String, String> parms) throws IOException {
         CloseableHttpClient httpClient = HttpClients.createDefault();
         HttpPost httpPost = new HttpPost(url);
+        RequestConfig requestConfig = RequestConfig.custom().setSocketTimeout(
+                60000*3
+        ).setConnectTimeout(
+                60000*3
+        ).build();
+        httpPost.setConfig(requestConfig);
         if (!headers.isEmpty()) {
             Set<Map.Entry<String, String>> entrys = headers.entrySet();
             entrys.stream().forEach(entry -> {

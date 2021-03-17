@@ -4,12 +4,15 @@ import com.alibaba.fastjson.JSONObject;
 import com.etlTasktool.App;
 import com.etlTasktool.entity.Job;
 import com.etlTasktool.entity.JobExcuteResult;
+import org.apache.http.conn.ConnectTimeoutException;
+
 import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.net.SocketException;
+import java.net.SocketTimeoutException;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import static java.lang.Thread.sleep;
@@ -24,6 +27,10 @@ public class JobTool {
     private List<String> excuteTaskIdList=new ArrayList<>();
 
     public JobTool(String taskTypeId){
+        if (taskTypeId == null || taskTypeId.isEmpty()) {
+            System.out.println("省份id不能为空");
+            System.exit(0);
+        }
         this.taskTypeId = taskTypeId;
     }
 
@@ -59,7 +66,7 @@ public class JobTool {
         headers.put("X-XSRF-TOKEN", App.X_XSRF_TOKEN);
 
         parms.put("pageNumber", "1");
-        parms.put("pageSize", "100");
+        parms.put("pageSize", "103");
         parms.put("taskTypeId", taskTypeId);
 
         while (true) {
@@ -150,8 +157,22 @@ public class JobTool {
         String time=TimeTool.getTime();
         System.out.println(time+" ------- 【"+job.getTaskName()+"】执行请求发起");
         out.write("\n"+time+" ------- 【"+job.getTaskName()+"】执行请求发起");
-        JSONObject jsonObject = HttpTool.post(HttpTool.IMPLEMENT, headers, parms);
-
+        JSONObject jsonObject = null;
+        try {
+             jsonObject = HttpTool.post(HttpTool.IMPLEMENT, headers, parms);
+        } catch (ConnectTimeoutException e) {
+            System.out.println("请求超时");
+            System.out.println("等待下次继续执行");
+            return false;
+        } catch (SocketTimeoutException e) {
+            System.out.println("响应超时!!可能断网了");
+            System.out.println("【"+job.getTaskName()+"】在该任务中断");
+            out.write("\n"+time+" ------- 【"+job.getTaskName()+"】在该任务中断");
+            out.close();
+            System.exit(0);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         time=TimeTool.getTime();
         if ("200".equals(jsonObject.getString("code"))) {
             if ("开始执行".equals(jsonObject.getJSONObject("data").getString("data"))) {
@@ -175,7 +196,7 @@ public class JobTool {
     }
 
     /**
-     * todo 支持排除抽取  只执行台卡
+     * todo 修改为多线程
      * @param sign   第一次过滤标志
      * <p>
      *     all代表过滤全部
@@ -187,10 +208,198 @@ public class JobTool {
      * </p>
      * @param needExcuteList  二次过滤条件  在taskname中进行匹配
      * @param excludeExcuteList 三次排除条件  排除数据
+     * @param interruptJobName 中断的taskname
      * @throws IOException
      */
-    public void excuteJobs(String sign,List<String> needExcuteList,List<String> excludeExcuteList) throws IOException {
+    public void excuteJobs(String sign,List<String> needExcuteList,List<String> excludeExcuteList,String interruptJobName) throws IOException {
 //            查询所有的执行任务
+        List<Job>  waitingJoblist = new ArrayList<>();
+        waitingJoblist = getWaitingExcuteJobList(sign, needExcuteList, excludeExcuteList,interruptJobName);
+
+        this.excuteStarttime = TimeTool.getDateString();
+        int num = 0;
+        BufferedWriter out = new BufferedWriter(new FileWriter("result.txt",true));
+
+        while (!waitingJoblist.isEmpty()) {
+
+            num++;
+            int size = waitingJoblist.size();
+            AtomicInteger size1 = new AtomicInteger(size);
+            out.write("\n-----第"+num+"次执行开始-----");
+            out.close();
+            System.out.println("-----第"+num+"次执行开始-----");
+            List<Job> joblist=waitingJoblist.stream().filter(job->{
+                try {
+                    boolean bool = excuteJob(job);
+                    System.out.println("-----还剩下"+ (size1.decrementAndGet())+"条任务待执行-----");
+                    if (bool == true) {
+                        return false;
+                    } else {
+                        return true;
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    return true;
+                }
+            }).collect(Collectors.toList());
+            waitingJoblist.clear();
+            waitingJoblist.addAll(joblist);
+
+            out = new BufferedWriter(new FileWriter("result.txt",true));
+            System.out.println("-----第"+num+"次执行完成，共执行"+size+"条任务，成功"+(size-waitingJoblist.size())+"条，失败"+waitingJoblist.size()+"条-----");
+            out.write("\n-----第"+num+"次执行完成，共执行"+size+"条任务，成功"+(size-waitingJoblist.size())+"条，失败"+waitingJoblist.size()+"条-----");
+        }
+        out.close();
+    }
+
+
+    /**
+     *
+     * @throws IOException
+     * @throws InterruptedException
+     */
+    public List<JobExcuteResult> collectResult() throws IOException, InterruptedException {
+        List<JobExcuteResult> results= new ArrayList<>();
+        int i = 0;
+//        开始轮询执行结果
+        List<JobExcuteResult> endResult = new ArrayList<>();
+        BufferedWriter out = new BufferedWriter(new FileWriter("ExcuteResult.txt",true));
+        while (!this.excuteTaskIdList.isEmpty()) {
+//            先遍历执行完成队列
+            results = getAllEndList();
+            results=  results.stream().filter(result->{
+                return result.getExecuteStartTime().equals(this.excuteStarttime)&&result.getExecuteEndtTime().equals(this.excuteStarttime);
+            }).collect(Collectors.toList());
+
+            results.stream().forEach(jobExcuteResult ->{
+                if (this.excuteTaskIdList.contains(jobExcuteResult.getTaskId())) {
+//                    执行完成，读取抽取数量
+                    if (jobExcuteResult.getExecuteStatus().equals("06")) {
+                        System.out.println("【"+jobExcuteResult.getTaskName()+"】执行完成；"+"总抽取量："
+                                +jobExcuteResult.getExtractAmount()
+                                +",新增插入量："+
+                                jobExcuteResult.getLoadInsertAmount()+
+                                ",新增异常插入量："
+                                +jobExcuteResult.getErrorInsertAmount()
+                                +",异常总量："+jobExcuteResult.getAllError());
+                        try {
+                            out.write("\n"+jobExcuteResult.getTaskName()+"执行完成；"+"总抽取量："
+                                    +jobExcuteResult.getExtractAmount()
+                                    +",新增插入量："+
+                                    jobExcuteResult.getLoadInsertAmount()+
+                                    ",新增异常插入量："
+                                    +jobExcuteResult.getErrorInsertAmount()
+                                    +",异常总量："+jobExcuteResult.getAllError());
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                        endResult.add(jobExcuteResult);
+                        this.excuteTaskIdList.remove(jobExcuteResult.getTaskId());
+                    }else if (jobExcuteResult.getExecuteStatus().equals("05")){
+                        System.out.println("【"+jobExcuteResult.getTaskName()+"】"+"执行异常");
+                        try {
+                            out.write("\n"+jobExcuteResult.getTaskName()+" 执行异常");
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                        this.excuteTaskIdList.remove(jobExcuteResult.getTaskId());
+                    }
+                }
+            });
+
+            results = getNoChangeList();
+            results=  results.stream().filter(result->{
+                return result.getExecuteStartTime().equals(this.excuteStarttime)&&result.getExecuteEndtTime().equals(this.excuteStarttime);
+            }).collect(Collectors.toList());
+
+            results.stream().forEach(jobExcuteResult ->{
+                if (this.excuteTaskIdList.contains(jobExcuteResult.getTaskId())) {
+//                    执行完成，读取抽取数量
+                    if (jobExcuteResult.getExecuteStatus().equals("06")) {
+                        System.out.println("【"+jobExcuteResult.getTaskName()+"】执行完成；"+"总抽取量："
+                                +jobExcuteResult.getExtractAmount()
+                                +",新增插入量："+
+                                jobExcuteResult.getLoadInsertAmount()+
+                                ",新增异常插入量："
+                                +jobExcuteResult.getErrorInsertAmount()
+                                +",异常总量："+jobExcuteResult.getAllError());
+                        try {
+                            out.write("\n"+jobExcuteResult.getTaskName()+"执行完成；"+"总抽取量："
+                                    +jobExcuteResult.getExtractAmount()
+                                    +",新增插入量："+
+                                    jobExcuteResult.getLoadInsertAmount()+
+                                    ",新增异常插入量："
+                                    +jobExcuteResult.getErrorInsertAmount()
+                                    +",异常总量："+jobExcuteResult.getAllError());
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                        endResult.add(jobExcuteResult);
+                        this.excuteTaskIdList.remove(jobExcuteResult.getTaskId());
+                    }else if (jobExcuteResult.getExecuteStatus().equals("05")){
+                        System.out.println("【"+jobExcuteResult.getTaskName()+"】"+"执行异常");
+                        try {
+                            out.write("\n"+jobExcuteResult.getTaskName()+" 执行异常");
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                        this.excuteTaskIdList.remove(jobExcuteResult.getTaskId());
+                    }
+                }
+            });
+//            休眠3秒再次请求
+            sleep(3000);
+        }
+        out.close();
+        return endResult;
+    }
+
+
+
+    /**
+     * 执行抽取任务并统计最终抽取结果
+     */
+    public static void excuteJobsAndCollect(String taskTypeId, String sign, List<String> needExcuteList,List<String> excludeExcuteList,String interruptJobName) throws IOException, InterruptedException {
+        JobTool jobTool = new JobTool(taskTypeId);
+        jobTool.excuteJobs(sign,needExcuteList,excludeExcuteList,interruptJobName);
+        jobTool.collectResult();
+    }
+
+    /**
+     * 执行抽取任务
+     * @param taskTypeId
+     * @param sign
+     * @param needExcuteList
+     * @throws IOException
+     */
+    public static void excuteJobs(String taskTypeId, String sign, List<String> needExcuteList, List<String> excludeExcuteList,String interruptJobName) throws IOException {
+        JobTool jobTool = new JobTool(taskTypeId);
+        jobTool.excuteJobs(sign,needExcuteList,excludeExcuteList,interruptJobName);
+    }
+
+    public static List<JobExcuteResult> collectResult(String taskTypeId, String time, String sign, List<String> needExcuteList, List<String> excludeExcuteList,String interruptJobName) throws IOException, InterruptedException {
+
+        time = TimeTool.standard(time);
+
+        JobTool jobTool = new JobTool(taskTypeId);
+        jobTool.setExcuteStarttime(time);
+        jobTool.setExcuteTaskIdList(jobTool.getWaitingExcuteJobList(sign,needExcuteList,excludeExcuteList,interruptJobName)
+                .stream()
+                .map(Job::getTaskId)
+                .collect(Collectors.toList())
+        );
+        return jobTool.collectResult();
+    }
+
+    /**
+     * 查询需要执行的任务
+     * @param sign
+     * @param needExcuteList
+     * @param excludeExcuteList
+     * @return
+     */
+    public  List<Job> getWaitingExcuteJobList(String sign,List<String> needExcuteList,List<String> excludeExcuteList,String interruptJobName) throws IOException {
+        //            查询所有的执行任务
         List<Job> allJobList = getAllJobList();
         List<Job> waitingJoblist = new ArrayList<>();
         if ("all".equals(sign.toLowerCase())) {
@@ -249,7 +458,7 @@ public class JobTool {
         }
 
         if (excludeExcuteList != null && !excludeExcuteList.isEmpty()) {
-           List<Job> tempJoblist = new ArrayList<>();
+            List<Job> tempJoblist = new ArrayList<>();
             excludeExcuteList.stream().forEach(con -> {
                 Predicate<Job> predicate = job -> {
                     return job.getTaskName().contains(con);
@@ -261,163 +470,16 @@ public class JobTool {
             });
         }
 
-        this.excuteStarttime = TimeTool.getDateString();
-        int num = 0;
-        BufferedWriter out = new BufferedWriter(new FileWriter("result.txt",true));
-
-        while (!waitingJoblist.isEmpty()) {
-
-            waitingJoblist.sort(Comparator.comparing(Job::getTaskName));
-            num++;
-            int size = waitingJoblist.size();
-            AtomicInteger size1 = new AtomicInteger(size);
-            out.write("\n-----第"+num+"次执行开始-----");
-            out.close();
-            System.out.println("-----第"+num+"次执行开始-----");
-            List<Job> joblist=waitingJoblist.stream().filter(job->{
-                try {
-                    boolean bool = excuteJob(job);
-                    System.out.println("-----还剩下"+ (size1.decrementAndGet())+"条任务待执行-----");
-                    if (bool == true) {
-                        return false;
-                    } else {
-                        return true;
-                    }
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    return true;
-                }
-            }).collect(Collectors.toList());
+        waitingJoblist.sort(Comparator.comparing(Job::getTaskName));
+        if (interruptJobName != null && !interruptJobName.isEmpty()) {
+            List<Job> tempJoblist = new ArrayList<>();
+            tempJoblist.addAll(waitingJoblist.stream().filter(job -> {
+                return interruptJobName.compareToIgnoreCase(job.getTaskName()) <= 0;
+            }).collect(Collectors.toList()));
             waitingJoblist.clear();
-            waitingJoblist.addAll(joblist);
-
-            out = new BufferedWriter(new FileWriter("result.txt",true));
-            System.out.println("-----第"+num+"次执行完成，共执行"+size+"条任务，成功"+(size-waitingJoblist.size())+"条，失败"+waitingJoblist.size()+"条-----");
-            out.write("\n-----第"+num+"次执行完成，共执行"+size+"条任务，成功"+(size-waitingJoblist.size())+"条，失败"+waitingJoblist.size()+"条-----");
+            waitingJoblist.addAll(tempJoblist);
         }
-        out.close();
-    }
-
-
-    /**
-     * todo 修改为多线程
-     * @throws IOException
-     */
-    public List<JobExcuteResult> collectExcuteResult() throws IOException, InterruptedException {
-        List<JobExcuteResult> results= new ArrayList<>();
-        int i = 0;
-//        开始轮询执行结果
-        List<JobExcuteResult> endResult = new ArrayList<>();
-        BufferedWriter out = new BufferedWriter(new FileWriter("ExcuteResult.txt",true));
-        while (!this.excuteTaskIdList.isEmpty()) {
-//            先遍历执行完成队列
-            results = getAllEndList();
-            results=  results.stream().filter(result->{
-                return result.getExecuteStartTime().equals(this.excuteStarttime)&&result.getExecuteEndtTime().equals(this.excuteStarttime);
-            }).collect(Collectors.toList());
-
-            results.stream().forEach(jobExcuteResult ->{
-                if (this.excuteTaskIdList.contains(jobExcuteResult.getTaskId())) {
-//                    执行完成，读取抽取数量
-                    if (jobExcuteResult.getExecuteStatus().equals("06")) {
-                        System.out.println("【"+jobExcuteResult.getTaskName()+"】执行完成；"+"总抽取量："
-                                +jobExcuteResult.getExtractAmount()
-                                +",新增插入量："+
-                                jobExcuteResult.getLoadInsertAmount()+
-                                ",新增异常插入量："
-                                +jobExcuteResult.getErrorInsertAmount()
-                                +",异常总量："+jobExcuteResult.getAllError());
-                        try {
-                            out.write(jobExcuteResult.getTaskName()+"执行完成；"+"总抽取量："
-                                    +jobExcuteResult.getExtractAmount()
-                                    +",新增插入量："+
-                                    jobExcuteResult.getLoadInsertAmount()+
-                                    ",新增异常插入量："
-                                    +jobExcuteResult.getErrorInsertAmount()
-                                    +",异常总量："+jobExcuteResult.getAllError());
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                        endResult.add(jobExcuteResult);
-                        this.excuteTaskIdList.remove(jobExcuteResult.getTaskId());
-                    }else if (jobExcuteResult.getExecuteStatus().equals("05")){
-                        System.out.println("【"+jobExcuteResult.getTaskName()+"】"+"执行异常");
-                        try {
-                            out.write(jobExcuteResult.getTaskName()+" 执行异常");
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                        this.excuteTaskIdList.remove(jobExcuteResult.getTaskId());
-                    }
-                }
-            });
-
-            results = getNoChangeList();
-            results=  results.stream().filter(result->{
-                return result.getExecuteStartTime().equals(this.excuteStarttime)&&result.getExecuteEndtTime().equals(this.excuteStarttime);
-            }).collect(Collectors.toList());
-
-            results.stream().forEach(jobExcuteResult ->{
-                if (this.excuteTaskIdList.contains(jobExcuteResult.getTaskId())) {
-//                    执行完成，读取抽取数量
-                    if (jobExcuteResult.getExecuteStatus().equals("06")) {
-                        System.out.println("【"+jobExcuteResult.getTaskName()+"】执行完成；"+"总抽取量："
-                                +jobExcuteResult.getExtractAmount()
-                                +",新增插入量："+
-                                jobExcuteResult.getLoadInsertAmount()+
-                                ",新增异常插入量："
-                                +jobExcuteResult.getErrorInsertAmount()
-                                +",异常总量："+jobExcuteResult.getAllError());
-                        try {
-                            out.write(jobExcuteResult.getTaskName()+"执行完成；"+"总抽取量："
-                                    +jobExcuteResult.getExtractAmount()
-                                    +",新增插入量："+
-                                    jobExcuteResult.getLoadInsertAmount()+
-                                    ",新增异常插入量："
-                                    +jobExcuteResult.getErrorInsertAmount()
-                                    +",异常总量："+jobExcuteResult.getAllError());
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                        endResult.add(jobExcuteResult);
-                        this.excuteTaskIdList.remove(jobExcuteResult.getTaskId());
-                    }else if (jobExcuteResult.getExecuteStatus().equals("05")){
-                        System.out.println("【"+jobExcuteResult.getTaskName()+"】"+"执行异常");
-                        try {
-                            out.write(jobExcuteResult.getTaskName()+" 执行异常");
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                        this.excuteTaskIdList.remove(jobExcuteResult.getTaskId());
-                    }
-                }
-            });
-//            休眠3秒再次请求
-            sleep(3000);
-        }
-        out.close();
-        return endResult;
-    }
-
-    /**
-     * 执行抽取任务并统计最终抽取结果
-     */
-    public static void excuteJobsAndCollect(String taskTypeId, String isAll, List<String> needExcuteList,List<String> excludeExcuteList) throws IOException, InterruptedException {
-        JobTool jobTool = new JobTool(taskTypeId);
-        jobTool.excuteJobs(isAll,needExcuteList,excludeExcuteList);
-        jobTool.collectExcuteResult();
-    }
-
-    /**
-     * 执行抽取任务
-     * @param taskTypeId
-     * @param isAll
-     * @param needExcuteList
-     * @throws IOException
-     */
-    public static void excuteJobs(String taskTypeId, String isAll, List<String> needExcuteList, List<String> excludeExcuteList) throws IOException {
-        JobTool jobTool = new JobTool(taskTypeId);
-        jobTool.excuteJobs(isAll,needExcuteList,excludeExcuteList);
+        return waitingJoblist;
     }
 
 }
