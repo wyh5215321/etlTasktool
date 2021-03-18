@@ -1,6 +1,7 @@
 package com.etlTasktool;
 
 
+import com.etlTasktool.tools.ExcelTool;
 import com.etlTasktool.tools.JobTool;
 import com.etlTasktool.tools.PropertyReaderTool;
 import java.io.IOException;
@@ -48,15 +49,16 @@ public class App
 
     public static void main( String[] args ) throws IOException, InterruptedException {
 ////        执行抽取任务示例
-        JobTool jobTool = new JobTool(BEI_JING);
+//        JobTool jobTool = new JobTool(BEI_JING);
         String[] a = {"106","111","101_1"};
-        jobTool.excuteJobs("tk",Arrays.asList(a), null,null);
+//        jobTool.excuteJobs("tk",Arrays.asList(a), null,null);
 //       收集执行结果
 //        jobTool.collectResult();
 
 
 //        JobTool.collectResult(BEI_JING,"2021-03-12","tk", Arrays.asList(a), null,null);
 
+        ExcelTool.write(ExcelTool.locate("报表主表")[0],ExcelTool.locate("报表主表")[1],"22","0");
 
     }
 

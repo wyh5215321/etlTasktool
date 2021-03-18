@@ -275,7 +275,7 @@ public class JobTool {
                 if (this.excuteTaskIdList.contains(jobExcuteResult.getTaskId())) {
 //                    执行完成，读取抽取数量
                     if (jobExcuteResult.getExecuteStatus().equals("06")) {
-                        System.out.println("【"+jobExcuteResult.getTaskName()+"】执行完成；"+"总抽取量："
+                        System.out.println("【"+jobExcuteResult.getTaskName()+"】已抽取完成，获取结果；"+"总抽取量："
                                 +jobExcuteResult.getExtractAmount()
                                 +",新增插入量："+
                                 jobExcuteResult.getLoadInsertAmount()+
@@ -283,6 +283,8 @@ public class JobTool {
                                 +jobExcuteResult.getErrorInsertAmount()
                                 +",异常总量："+jobExcuteResult.getAllError());
                         try {
+                            ExcelTool.saveExcel(Integer.toString(jobExcuteResult.getExtractAmount()),Integer.toString(jobExcuteResult.getErrorInsertAmount()),jobExcuteResult.getTaskName());
+
                             out.write("\n"+jobExcuteResult.getTaskName()+"执行完成；"+"总抽取量："
                                     +jobExcuteResult.getExtractAmount()
                                     +",新增插入量："+
