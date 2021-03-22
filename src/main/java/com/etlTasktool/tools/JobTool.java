@@ -5,12 +5,12 @@ import com.etlTasktool.App;
 import com.etlTasktool.entity.Job;
 import com.etlTasktool.entity.JobExcuteResult;
 import org.apache.http.conn.ConnectTimeoutException;
-
 import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.net.SocketException;
 import java.net.SocketTimeoutException;
+import java.security.KeyManagementException;
+import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
@@ -57,7 +57,7 @@ public class JobTool {
      * @return
      * @throws IOException
      */
-    public static <T> List<T> queryJobList(String taskTypeId,String url,Class T) throws IOException {
+    public static <T> List<T> queryJobList(String taskTypeId,String url,Class T) throws IOException, NoSuchAlgorithmException, KeyManagementException {
         Map<String, String> headers = new HashMap<>();
         Map<String, String> parms = new HashMap<>();
         List<T> list = new ArrayList<>();
@@ -98,7 +98,7 @@ public class JobTool {
      * @return
      * @throws IOException
      */
-    public  List<Job> getAllJobList() throws IOException {
+    public  List<Job> getAllJobList() throws IOException, KeyManagementException, NoSuchAlgorithmException {
         if (this.taskTypeId == null || this.taskTypeId.isEmpty()) {
             System.out.println("JobTool对象没有设置taskTypeId！！");
             return new ArrayList<>();
@@ -111,7 +111,7 @@ public class JobTool {
      * @return
      * @throws IOException
      */
-    public  List<JobExcuteResult> getAllEndList() throws IOException {
+    public  List<JobExcuteResult> getAllEndList() throws IOException, KeyManagementException, NoSuchAlgorithmException {
         if (this.taskTypeId == null || this.taskTypeId.isEmpty()) {
             System.out.println("JobTool对象没有设置taskTypeId！！");
             return new ArrayList<>();
@@ -124,7 +124,7 @@ public class JobTool {
      * @return
      * @throws IOException
      */
-    public  List<JobExcuteResult> getNoChangeList() throws IOException {
+    public  List<JobExcuteResult> getNoChangeList() throws IOException, KeyManagementException, NoSuchAlgorithmException {
         if (this.taskTypeId == null || this.taskTypeId.isEmpty()) {
             System.out.println("JobTool对象没有设置taskTypeId！！");
             return new ArrayList<>();
@@ -211,7 +211,7 @@ public class JobTool {
      * @param interruptJobName 中断的taskname
      * @throws IOException
      */
-    public void excuteJobs(String sign,List<String> needExcuteList,List<String> excludeExcuteList,String interruptJobName) throws IOException {
+    public void excuteJobs(String sign,List<String> needExcuteList,List<String> excludeExcuteList,String interruptJobName) throws IOException, KeyManagementException, NoSuchAlgorithmException {
 //            查询所有的执行任务
         List<Job>  waitingJoblist = new ArrayList<>();
         waitingJoblist = getWaitingExcuteJobList(sign, needExcuteList, excludeExcuteList,interruptJobName);
@@ -258,7 +258,7 @@ public class JobTool {
      * @throws IOException
      * @throws InterruptedException
      */
-    public List<JobExcuteResult> collectResult() throws IOException, InterruptedException {
+    public List<JobExcuteResult> collectResult() throws IOException, InterruptedException, NoSuchAlgorithmException, KeyManagementException {
         List<JobExcuteResult> results= new ArrayList<>();
         int i = 0;
 //        开始轮询执行结果
@@ -283,7 +283,7 @@ public class JobTool {
                                 +jobExcuteResult.getErrorInsertAmount()
                                 +",异常总量："+jobExcuteResult.getAllError());
                         try {
-                            ExcelTool.saveExcel(Integer.toString(jobExcuteResult.getExtractAmount()),Integer.toString(jobExcuteResult.getErrorInsertAmount()),jobExcuteResult.getTaskName());
+                            ExcelTool.saveExcel(Integer.toString(jobExcuteResult.getLoadInsertAmount()),Integer.toString(jobExcuteResult.getErrorInsertAmount()),jobExcuteResult.getTaskName());
 
                             out.write("\n"+jobExcuteResult.getTaskName()+"执行完成；"+"总抽取量："
                                     +jobExcuteResult.getExtractAmount()
@@ -326,6 +326,7 @@ public class JobTool {
                                 +jobExcuteResult.getErrorInsertAmount()
                                 +",异常总量："+jobExcuteResult.getAllError());
                         try {
+                            ExcelTool.saveExcel(Integer.toString(jobExcuteResult.getLoadInsertAmount()),Integer.toString(jobExcuteResult.getErrorInsertAmount()),jobExcuteResult.getTaskName());
                             out.write("\n"+jobExcuteResult.getTaskName()+"执行完成；"+"总抽取量："
                                     +jobExcuteResult.getExtractAmount()
                                     +",新增插入量："+
@@ -361,7 +362,7 @@ public class JobTool {
     /**
      * 执行抽取任务并统计最终抽取结果
      */
-    public static void excuteJobsAndCollect(String taskTypeId, String sign, List<String> needExcuteList,List<String> excludeExcuteList,String interruptJobName) throws IOException, InterruptedException {
+    public static void excuteJobsAndCollect(String taskTypeId, String sign, List<String> needExcuteList,List<String> excludeExcuteList,String interruptJobName) throws IOException, InterruptedException, KeyManagementException, NoSuchAlgorithmException {
         JobTool jobTool = new JobTool(taskTypeId);
         jobTool.excuteJobs(sign,needExcuteList,excludeExcuteList,interruptJobName);
         jobTool.collectResult();
@@ -374,12 +375,12 @@ public class JobTool {
      * @param needExcuteList
      * @throws IOException
      */
-    public static void excuteJobs(String taskTypeId, String sign, List<String> needExcuteList, List<String> excludeExcuteList,String interruptJobName) throws IOException {
+    public static void excuteJobs(String taskTypeId, String sign, List<String> needExcuteList, List<String> excludeExcuteList,String interruptJobName) throws IOException, NoSuchAlgorithmException, KeyManagementException {
         JobTool jobTool = new JobTool(taskTypeId);
         jobTool.excuteJobs(sign,needExcuteList,excludeExcuteList,interruptJobName);
     }
 
-    public static List<JobExcuteResult> collectResult(String taskTypeId, String time, String sign, List<String> needExcuteList, List<String> excludeExcuteList,String interruptJobName) throws IOException, InterruptedException {
+    public static List<JobExcuteResult> collectResult(String taskTypeId, String time, String sign, List<String> needExcuteList, List<String> excludeExcuteList,String interruptJobName) throws IOException, InterruptedException, KeyManagementException, NoSuchAlgorithmException {
 
         time = TimeTool.standard(time);
 
@@ -400,7 +401,7 @@ public class JobTool {
      * @param excludeExcuteList
      * @return
      */
-    public  List<Job> getWaitingExcuteJobList(String sign,List<String> needExcuteList,List<String> excludeExcuteList,String interruptJobName) throws IOException {
+    public  List<Job> getWaitingExcuteJobList(String sign,List<String> needExcuteList,List<String> excludeExcuteList,String interruptJobName) throws IOException, NoSuchAlgorithmException, KeyManagementException {
         //            查询所有的执行任务
         List<Job> allJobList = getAllJobList();
         List<Job> waitingJoblist = new ArrayList<>();
