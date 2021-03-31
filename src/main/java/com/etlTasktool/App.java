@@ -1,61 +1,58 @@
 package com.etlTasktool;
 
-
-import com.etlTasktool.tools.ExcelTool;
+import com.etlTasktool.entity.ProvinceCode;
+import com.etlTasktool.entity.SignCode;
 import com.etlTasktool.tools.JobTool;
 import com.etlTasktool.tools.PropertyReaderTool;
 import java.io.IOException;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
-import java.util.Arrays;
-import java.util.List;
-import java.util.function.Predicate;
-
+import java.util.*;
 
 public class App
 {
 
-    private static final  PropertyReaderTool properties= new PropertyReaderTool() ;
+    /**
+     * 配置文件读取工具
+     */
+    private static PropertyReaderTool properties= new PropertyReaderTool() ;
+
+    public static PropertyReaderTool getProperties() {
+        return properties;
+    }
+
+    public static void setProperties(PropertyReaderTool properties) {
+        App.properties = properties;
+    }
 
     /**
      * cookie必填
      */
-    public static final String COOKIE =properties.getProperty("COOKIE") ;
+    public static  String COOKIE =properties.getProperty("COOKIE") ;
     /**
      * x-xsrf-token必填
      */
-    public static final String X_XSRF_TOKEN = properties.getProperty("X_XSRF_TOKEN");
+    public static  String X_XSRF_TOKEN = properties.getProperty("X_XSRF_TOKEN");
 
-
     /**
-     * 湖南省份任务代码
+     * 主函数入口
+     * @param args
+     * @throws IOException
+     * @throws NoSuchAlgorithmException
+     * @throws KeyManagementException
      */
-    public static final String HU_NAN = "1000000001285705";
-    /**
-     * 云南省份任务代码
-     */
-    public static final String YUN_NAN = "1000000001057813";
-    /**
-     * 北京省份任务代码
-     */
-    public static final String BEI_JING = "1000000001059917";
-    /**
-     * 浙江省份任务代码
-     */
-    public static final String ZHE_JIANG = "1000000001072945";
-    /**
-     * 山东省份任务代码
-     */
-    public static final String SHAN_DONG = "1000000000143130";
-
-
-    public static void main( String[] args ) throws IOException, InterruptedException, NoSuchAlgorithmException, KeyManagementException {
+    public static void main( String[] args ) throws IOException, NoSuchAlgorithmException, KeyManagementException, InterruptedException {
 //        执行抽取任务示例
-        String[] needExcuteList = {"101_1"};
-        excuteJobs(ZHE_JIANG, "sum", null, null, null);
+//        String[] needExcuteList = {""};
+//        String[] excludeExcuteList = {""};
+        excuteJobs(ProvinceCode.getCode("浙江"),SignCode.getCode("台卡"),null,null,null);
 
 //       收集执行结果
-        JobTool.collectResult(SHAN_DONG,"2021-03-21","tksum",null, null,null);
+//       JobTool.collectResult(ProvinceCode.getCode("浙江"),"2021-03-23",SignCode.getCode("台卡"),null, null,null);
+
+//       执行结果并收集  (不常用)
+//        excuteJobsAndCollectResult(ProvinceCode.getCode("浙江"),SignCode.getCode("台卡"),null,null,null);
+
 
     }
 
@@ -69,7 +66,26 @@ public class App
      */
     public static  void excuteJobs(String taskTypeId, String sign, String[] needExcuteList, String[] excludeExcuteList,String interruptJobName) throws IOException, NoSuchAlgorithmException, KeyManagementException {
         JobTool jobTool = new JobTool(taskTypeId);
-        jobTool.excuteJobs(sign, Arrays.asList(needExcuteList), Arrays.asList(excludeExcuteList),interruptJobName);
+        jobTool.excuteJobs(sign, needExcuteList==null?null:Arrays.asList(needExcuteList), excludeExcuteList==null?null:Arrays.asList(excludeExcuteList),interruptJobName);
+    }
+
+
+    /**
+     * 执行抽取任务并进行采集
+     * @param taskTypeId
+     * @param sign
+     * @param needExcuteList
+     * @param excludeExcuteList
+     * @param interruptJobName
+     * @throws IOException
+     * @throws NoSuchAlgorithmException
+     * @throws KeyManagementException
+     * @throws InterruptedException
+     */
+    public static  void excuteJobsAndCollectResult(String taskTypeId, String sign, String[] needExcuteList, String[] excludeExcuteList,String interruptJobName) throws IOException, NoSuchAlgorithmException, KeyManagementException, InterruptedException {
+        JobTool jobTool = new JobTool(taskTypeId);
+        jobTool.excuteJobs(sign, needExcuteList==null?null:Arrays.asList(needExcuteList),excludeExcuteList==null?null: Arrays.asList(excludeExcuteList),interruptJobName);
+        jobTool.collectResult();
     }
 
     /**
@@ -80,12 +96,13 @@ public class App
      * @param excludeExcuteList
      * @throws IOException
      */
-    public int getWaitingExcuteJobList(String taskTypeId, String sign, String[] needExcuteList, String[] excludeExcuteList,String interruptJobName) throws IOException, KeyManagementException, NoSuchAlgorithmException {
+    public static int getWaitingExcuteJobList(String taskTypeId, String sign, String[] needExcuteList, String[] excludeExcuteList, String interruptJobName) throws IOException, KeyManagementException, NoSuchAlgorithmException {
         JobTool jobTool = new JobTool(taskTypeId);
-        List list = jobTool.getWaitingExcuteJobList(sign, Arrays.asList(needExcuteList), Arrays.asList(excludeExcuteList),interruptJobName);
+        List list = jobTool.getWaitingExcuteJobList(sign, needExcuteList==null?null:Arrays.asList(needExcuteList), excludeExcuteList==null?null: Arrays.asList(excludeExcuteList),interruptJobName);
         System.out.println("查询出执行队列共计：" + list.size());
         return list.size();
     }
+
 
 
 

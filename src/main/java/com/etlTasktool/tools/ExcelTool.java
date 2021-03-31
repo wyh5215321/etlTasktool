@@ -3,7 +3,6 @@ package com.etlTasktool.tools;
 
 
 import org.apache.poi.ss.usermodel.*;
-
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -11,6 +10,7 @@ import java.io.IOException;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 public class ExcelTool {
+
     public final static String PATH = "C:\\Users\\xm\\Desktop\\模板数据抽取结果 - 副本.xlsx";
 
     /**
@@ -43,9 +43,16 @@ public class ExcelTool {
         return null;
     }
 
+    /**
+     * 写入excel单元格内容
+     * @param row
+     * @param col
+     * @param cellValue
+     * @param errorValue
+     * @throws IOException
+     */
     public static void write(int row, int col, String cellValue,String errorValue) throws IOException {
         FileInputStream fs=new FileInputStream(PATH);
-//        POIFSFileSystem ps=new POIFSFileSystem(fs);
         // 获得工作簿
         XSSFWorkbook workbook = new XSSFWorkbook(fs);
         // 遍历工作表
@@ -70,6 +77,13 @@ public class ExcelTool {
         }
     }
 
+    /**
+     * 执行保存单元格数据
+     * @param cellValue
+     * @param errorValue
+     * @param taskName
+     * @throws IOException
+     */
     public static void saveExcel(String cellValue, String errorValue, String taskName) throws IOException {
         int[] res = locate(taskName);
         if (res != null && res[1] != 0) {
@@ -77,6 +91,12 @@ public class ExcelTool {
         }
     }
 
+    /**
+     * 获取列号
+     * @param cellValue
+     * @param taskName
+     * @return
+     */
     public static int getIndex(String cellValue, String taskName) {
 
         if (taskName.contains("sum")) {
@@ -106,8 +126,6 @@ public class ExcelTool {
         if (!taskName.contains("报表")&&!taskName.contains("代码")&&cellValue.toLowerCase().contains(taskName.toLowerCase().substring(0,4))) {
             return 1;
         }
-
-
         return 0;
     }
 }

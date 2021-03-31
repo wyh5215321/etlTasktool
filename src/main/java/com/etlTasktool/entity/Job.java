@@ -7,6 +7,7 @@ public class Job {
     private String taskTypeId;
 //    任务名称
     private String taskName;
+
     private String executeServer;
 //    任务id
     private String taskId;

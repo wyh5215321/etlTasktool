@@ -6,15 +6,20 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Properties;
 
+/**
+ * 文件读取工具类
+ * <p>
+ *     主要用于读取cookie信息
+ * </p>
+ */
 public class PropertyReaderTool {
     private Properties prop;
 
-    public PropertyReaderTool()
+    public PropertyReaderTool( )
     {
         this.prop=new Properties();
-
         try {
-            FileInputStream in=new FileInputStream(new File(PropertyReaderTool.class.getClassLoader().getResource("app.properties").getPath()));
+            FileInputStream in=new FileInputStream(new File(this.getClass().getClassLoader().getResource("app.properties").getPath()));
             this.prop.load(in);
             in.close();
         } catch (FileNotFoundException e) {
@@ -22,7 +27,6 @@ public class PropertyReaderTool {
         } catch (IOException e) {
             e.printStackTrace();
         }
-
     }
 
     public String getProperty(String key)

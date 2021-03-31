@@ -17,13 +17,24 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import static java.lang.Thread.sleep;
 
+/**
+ * 抽取任务工具类
+ */
 public class JobTool {
 
+    /**
+     * 省份id
+     */
     private String taskTypeId;
 
+    /**
+     * 执行时间
+     */
     private String excuteStarttime;
 
-
+    /**
+     * 当前执行过的任务列表
+     */
     private List<String> excuteTaskIdList=new ArrayList<>();
 
     public JobTool(String taskTypeId){
@@ -83,7 +94,11 @@ public class JobTool {
                 System.out.println(jsonObject.toString());
                 if ("403".equals(jsonObject.getJSONArray("errors").getJSONObject(0).getString("errorCode"))) {
                     System.out.println("-----cookie失效------");
-                    System.exit(0);
+//                    重新设置cookie
+                    System.out.println("-----正在重新获取cookie-----");
+                    SeleniumTool seleniumTool = new SeleniumTool();
+                    seleniumTool.setCookie();
+                    return queryJobList(taskTypeId, url, T);
                 }
                 System.out.println("-----调用查询接口失败，尝试重新发起请求------");
             }
@@ -154,7 +169,7 @@ public class JobTool {
 
 
         BufferedWriter out = new BufferedWriter(new FileWriter("result.txt",true));
-        String time=TimeTool.getTime();
+        String time=TimeTool.getTimeString();
         System.out.println(time+" ------- 【"+job.getTaskName()+"】执行请求发起");
         out.write("\n"+time+" ------- 【"+job.getTaskName()+"】执行请求发起");
         JSONObject jsonObject = null;
@@ -173,7 +188,7 @@ public class JobTool {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        time=TimeTool.getTime();
+        time=TimeTool.getTimeString();
         if ("200".equals(jsonObject.getString("code"))) {
             if ("开始执行".equals(jsonObject.getJSONObject("data").getString("data"))) {
                 System.out.println(time+" ------- 【"+job.getTaskName()+"】执行完成");
@@ -225,9 +240,9 @@ public class JobTool {
             num++;
             int size = waitingJoblist.size();
             AtomicInteger size1 = new AtomicInteger(size);
-            out.write("\n-----第"+num+"次执行开始-----");
+            out.write("\n-----第"+num+"次执行开始，共"+size+"条-----");
             out.close();
-            System.out.println("-----第"+num+"次执行开始-----");
+            System.out.println("-----第"+num+"次执行开始，共"+size+"条-----");
             List<Job> joblist=waitingJoblist.stream().filter(job->{
                 try {
                     boolean bool = excuteJob(job);

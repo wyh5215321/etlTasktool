@@ -3,9 +3,7 @@ package com.etlTasktool.entity;
 
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
-
 import javax.net.ssl.X509TrustManager;
-
 public class HttpsTrustManager implements X509TrustManager {
 
 

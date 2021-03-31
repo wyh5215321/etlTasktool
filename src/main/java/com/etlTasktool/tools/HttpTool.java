@@ -5,7 +5,6 @@ import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.etlTasktool.App;
 import com.etlTasktool.entity.HttpsTrustManager;
-import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
@@ -26,6 +25,9 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.*;
 
+/**
+ * 针对抽取平台的http请求工具
+ */
 public class HttpTool {
 
     /**
@@ -38,15 +40,22 @@ public class HttpTool {
      */
     public static final String QUERY_ALL_END_URL = "https://zwxt.mca.gov.cn/yhdsep/etlTaskExecuteQueue/queryAllEnd.do";
 
-
+    /**
+     * 查询所有配置的任务
+     */
     public static final String QUERY_ALL_JOB_URL = "https://zwxt.mca.gov.cn:/yhdsep/etlTaskRestService/queryAll.do";
 
+    /**
+     * 执行任务
+     */
     public static final String IMPLEMENT = "https://zwxt.mca.gov.cn/yhdsep/etlTaskExecuteQueue/implement.do";
 
 
     /**
      * post请求
-     *
+     * @param url 请求地址
+     * @param headers 请求头
+     * @param parms 请求体
      * @throws IOException
      */
     public static JSONObject post(String url, Map<String, String> headers, Map<String, String> parms) throws IOException, KeyManagementException, NoSuchAlgorithmException {
@@ -91,6 +100,12 @@ public class HttpTool {
         return jsonObject;
     }
 
+    /**
+     * get请求
+     * @param url
+     * @return
+     * @throws IOException
+     */
     public static JSONObject get(String url) throws IOException {
         // 创建Httpclient对象
         CloseableHttpClient httpclient = HttpClients.createDefault();
