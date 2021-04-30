@@ -1,9 +1,6 @@
 package com.etlTasktool.tools;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
+import java.io.*;
 import java.util.Properties;
 
 /**
@@ -19,7 +16,8 @@ public class PropertyReaderTool {
     {
         this.prop=new Properties();
         try {
-            FileInputStream in=new FileInputStream(new File(this.getClass().getClassLoader().getResource("app.properties").getPath()));
+            File file = new File(this.getClass().getClassLoader().getResource("app.properties").getPath());
+            FileInputStream in=new FileInputStream(file);
             this.prop.load(in);
             in.close();
         } catch (FileNotFoundException e) {

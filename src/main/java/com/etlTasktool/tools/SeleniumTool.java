@@ -7,6 +7,7 @@ import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
 import java.io.BufferedWriter;
+import java.io.File;
 import java.io.FileWriter;
 import java.util.HashMap;
 import java.util.Map;
@@ -47,7 +48,8 @@ public class SeleniumTool {
             String x_xsrf_token = cookiesMap.get("XSRF-TOKEN");
             driver.quit();
 //        更新文件中的cookie
-            BufferedWriter out = new BufferedWriter(new FileWriter(this.getClass().getClassLoader().getResource("app.properties").getPath(), false));
+            File file = new File(this.getClass().getClassLoader().getResource("app.properties").getPath());
+            BufferedWriter out = new BufferedWriter(new FileWriter(file, false));
             out.write("COOKIE=" + cookie);
             out.write("\nX_XSRF_TOKEN=" + x_xsrf_token);
             out.flush();

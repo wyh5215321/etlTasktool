@@ -17,9 +17,7 @@ public class App
      */
     private static PropertyReaderTool properties= new PropertyReaderTool() ;
 
-    public static PropertyReaderTool getProperties() {
-        return properties;
-    }
+
 
     public static void setProperties(PropertyReaderTool properties) {
         App.properties = properties;
@@ -45,13 +43,14 @@ public class App
 //        执行抽取任务示例
 //        String[] needExcuteList = {""};
 //        String[] excludeExcuteList = {""};
-        excuteJobs(ProvinceCode.getCode("浙江"),SignCode.getCode("台卡"),null,null,null);
+//        excuteJobs(ProvinceCode.getCode("云南"),SignCode.getCode("全部"),null,null,null);
+        getWaitingExcuteJobList(ProvinceCode.getCode("浙江"), SignCode.getCode("台卡"), null, null, null);
 
 //       收集执行结果
-//       JobTool.collectResult(ProvinceCode.getCode("浙江"),"2021-03-23",SignCode.getCode("台卡"),null, null,null);
+//       JobTool.collectResult(ProvinceCode.getCode("北京"),"2021-04-19",SignCode.getCode("台卡汇总"),null, null,null);
 
 //       执行结果并收集  (不常用)
-//        excuteJobsAndCollectResult(ProvinceCode.getCode("浙江"),SignCode.getCode("台卡"),null,null,null);
+//        excuteJobsAndCollectResult(ProvinceCode.getCode("云南"),SignCode.getCode("全部"),null,null,null);
 
 
     }

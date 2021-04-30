@@ -73,8 +73,8 @@ public class JobTool {
         Map<String, String> parms = new HashMap<>();
         List<T> list = new ArrayList<>();
 
-        headers.put("Cookie", App.COOKIE);
-        headers.put("X-XSRF-TOKEN", App.X_XSRF_TOKEN);
+        headers.put("Cookie",new PropertyReaderTool().getProperty("COOKIE"));
+        headers.put("X-XSRF-TOKEN", new PropertyReaderTool().getProperty("X_XSRF_TOKEN"));
 
         parms.put("pageNumber", "1");
         parms.put("pageSize", "103");

@@ -8,7 +8,8 @@ public enum SignCode {
     QHDM("机构代码", "qhdm"),
     TK("台卡", "tk"),
     SUM("汇总", "sum"),
-    TK_SUM("台卡汇总", "tksum");
+    TK_SUM("台卡汇总", "tksum"),
+    All("全部","all");
     // 成员变量
     private String name;
     private String code;
